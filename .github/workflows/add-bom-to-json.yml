@@ -1,0 +1,36 @@
+name: Add BOM to JSON files
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  add-bom:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Add UTF-8 BOM to all JSON files
+        run: |
+          find . -name "*.json" | while read f; do
+            # 如果已经有 BOM，先移除，避免重复
+            sed -i '1s/^\xEF\xBB\xBF//' "$f"
+            # 再统一加 BOM
+            sed -i '1s/^/\xEF\xBB\xBF/' "$f"
+          done
+
+      - name: Commit changes if any
+        run: |
+          if git status --porcelain | grep .; then
+            git config user.name "github-actions"
+            git config user.email "github-actions@github.com"
+            git add .
+            git commit -m "chore: add UTF-8 BOM to JSON files"
+            git push
+          else
+            echo "No changes to commit"
+          fi
