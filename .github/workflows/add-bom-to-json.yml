@@ -1,5 +1,8 @@
 name: Add BOM to JSON files
 
+permissions:
+  contents: write
+
 on:
   push:
     branches:
