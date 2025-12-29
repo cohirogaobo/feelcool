@@ -40,6 +40,18 @@
     "exp": "2026-01-27",
     "files": [
       {
+        "title": "妇科",
+        "file": "新妇科试题.json"
+      },
+      {
+        "title": "产科1",
+        "file": "产科1.json"
+      },
+      {
+        "title": "产科2",
+        "file": "产科2.json"
+      },
+      {
         "title": "内科(更新中)",
         "file": "内科重点.json"
       }
