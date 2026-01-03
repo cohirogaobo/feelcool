@@ -570,12 +570,8 @@
     "exp": "2099-01-01",
     "files": [
       {
-        "title": "产科2",
-        "file": "产科2.json"
-      },
-      {
-        "title": "测试题",
-        "file": "test.json"
+        "title": "雅思必考核心词",
+        "file": "单词测试.json"
       }
     ],
     "note": "南京测试"
