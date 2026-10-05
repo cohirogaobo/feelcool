@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>很酷宇宙 Beta</title>
+    <style>
+        :root {
+            --text-color: #e2e8f0;
+            --center-glow: rgba(99, 102, 241, 0.6);
+            --panel-bg: rgba(20, 20, 35, 0.85);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --highlight: #6366f1;
+            --highlight-glow: #a855f7;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+        body {
+            width: 100vw; height: 100vh;
+            background-color: #070710; 
+            background-image: radial-gradient(circle 800px at var(--mouse-x, 50vw) var(--mouse-y, 50vh), rgba(99, 102, 241, 0.12) 0%, transparent 80%);
+            color: var(--text-color); overflow: hidden; position: relative;
+        }
+
+        #trails-canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1; }
+
+        /* 极简模式指示器 */
+        #mode-indicator {
+            position: absolute; top: 30px; left: 30px;
+            font-size: 24px; font-weight: 300; letter-spacing: 2px;
+            color: #ffffff; z-index: 200; pointer-events: none;
+            transition: opacity 1s ease-out; opacity: 1;
+        }
+
+        /* 初始加载动画 */
+        #loading-screen {
+            position: fixed; inset: 0; background: #070710; z-index: 9999;
+            display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 15px;
+            transition: opacity 0.5s ease;
+        }
+        .spinner {
+            width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.1); border-radius: 50%;
+            border-top-color: var(--highlight); animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* 宇宙核心区 */
+        .center-node {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(1);
+            width: 80px; height: 80px; border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            box-shadow: 0 0 40px var(--center-glow), inset 0 0 20px rgba(255,255,255,0.3);
+            display: flex; justify-content: center; align-items: center;
+            font-weight: 600; font-size: 2rem; z-index: 10; cursor: pointer;
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease;
+        }
+        .center-node:hover:not(.selected) { transform: translate(-50%, -50%) scale(1.08); box-shadow: 0 0 50px var(--center-glow); }
+        .center-node.selected { transform: translate(-50%, -50%) scale(1.15); box-shadow: 0 0 60px var(--highlight-glow); }
+        .center-node img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        
+        .center-label {
+            position: absolute; bottom: -30px; font-size: 14px; font-weight: bold;
+            white-space: nowrap; background: rgba(0, 0, 0, 0.5); padding: 4px 10px; border-radius: 12px;
+            pointer-events: none;
+        }
+
+        /* 行星 CSS */
+        .planet {
+            position: absolute; top: 50%; left: 50%; width: 50px; height: 50px; border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15); display: flex; justify-content: center; align-items: center;
+            font-size: 1.5rem; cursor: pointer; transition: border-color 0.3s ease, box-shadow 0.3s ease; 
+        }
+        .planet:hover:not(.selected) { border-color: rgba(255,255,255,0.6); box-shadow: 0 0 12px rgba(255,255,255,0.2); }
+        .planet.selected { border-color: #fff; box-shadow: 0 0 20px rgba(255,255,255,0.6); }
+        .planet img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+
+        .planet-name {
+            position: absolute; bottom: -28px; font-size: 12px; white-space: nowrap;
+            background: rgba(0, 0, 0, 0.6); padding: 4px 8px; border-radius: 12px; transition: 0.3s;
+        }
+
+        /* 顶部操作区 */
+        .top-actions { position: absolute; top: 20px; right: 20px; display: flex; gap: 10px; z-index: 200; }
+        .icon-btn {
+            background: rgba(255,255,255,0.1); border: 1px solid var(--border-color); color: white;
+            padding: 10px; border-radius: 50%; width: 40px; height: 40px; cursor: pointer;
+            backdrop-filter: blur(10px); display: flex; justify-content: center; align-items: center; transition: 0.3s;
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.2); }
+        .icon-btn svg { width: 18px; height: 18px; }
+
+        /* 悬浮信息卡片 */
+        #normal-info-card {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: var(--panel-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-color); padding: 20px 30px; border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 150;
+            display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; min-width: 220px;
+            opacity: 0; pointer-events: none; transition: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        #normal-info-card.visible { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+        
+        .card-title { font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; width: 100%; gap: 0px; }
+        #info-card-tags { color: #e2e8f0; font-size: 13px; font-weight: normal; margin-top: 2px; text-align: center; }
+        #info-card-contact { width: 100%; display: flex; justify-content: center; align-items: center; }
+        
+        .btn-emergency-icon {
+            background: transparent; border: none; color: #a0aec0; cursor: pointer; transition: 0.2s;
+            padding: 5px; display: inline-flex; align-items: center; justify-content: center; margin-top: 5px;
+        }
+        .btn-emergency-icon:hover { color: #fca5a5; transform: scale(1.1); }
+
+        /* 弹窗组件 */
+        .modal-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            display: flex; justify-content: center; align-items: center; z-index: 999;
+            opacity: 0; pointer-events: none; transition: 0.3s ease;
+        }
+        .modal-overlay.visible { opacity: 1; pointer-events: auto; }
+        .modal-container {
+            background: var(--panel-bg); border: 1px solid var(--border-color); padding: 35px; border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: flex; flex-direction: column; align-items: center; gap: 20px;
+        }
+        
+        .pin-inputs { display: flex; gap: 15px; }
+        .pin-box {
+            width: 50px; height: 60px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px; color: white; font-size: 24px; text-align: center; outline: none; transition: 0.2s;
+        }
+        .pin-box:focus { border-color: var(--highlight); box-shadow: 0 0 15px rgba(99, 102, 241, 0.4); }
+        .btn-text { background: transparent; color: #a0aec0; border: none; font-size: 14px; cursor: pointer; margin-top: 5px; transition: 0.2s; }
+        .btn-text:hover { color: white; }
+        
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #fca5a5;
+            padding: 10px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; flex: 1;
+        }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.35); color: white; box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+        .btn-neutral {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #e2e8f0;
+            padding: 10px; border-radius: 8px; cursor: pointer; transition: 0.2s; flex: 1;
+        }
+        .btn-neutral:hover { background: rgba(255,255,255,0.15); color: white; }
+
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 20%, 60% {transform: translateX(-8px);} 40%, 80% {transform: translateX(8px);} }
+        .error-shake { animation: shake 0.4s ease-in-out; }
+
+        /* 管理控制面板 */
+        #control-panel {
+            position: absolute; top: 0; right: 0; width: 360px; height: 100vh; background: var(--panel-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-left: 1px solid var(--border-color);
+            padding: 20px; padding-top: 80px; overflow-y: auto; box-shadow: -10px 0 30px rgba(0,0,0,0.5); z-index: 100;
+            display: flex; flex-direction: column; gap: 15px; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #control-panel.hidden { transform: translateX(100%); }
+        .global-tools { display: flex; gap: 10px; margin-bottom: 5px; flex-wrap: wrap; }
+        .global-tools button, .global-tools label { flex: 1; background: rgba(255,255,255,0.1); border: 1px solid var(--border-color); color: white; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; text-align: center; transition: 0.2s; }
+        .global-tools button:hover { background: rgba(255,255,255,0.2); }
+        .search-box { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); color: white; border-radius: 8px; padding: 10px 15px; font-size: 14px; margin-bottom: 5px; }
+        .card { background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; margin-bottom: 15px; transition: border-color 0.3s; }
+        .card.highlight { border-color: var(--highlight); box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: bold; }
+        .two-cols { display: flex; gap: 10px; }
+        .input-group { margin-bottom: 10px; display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+        .input-group label { font-size: 12px; color: #a0aec0; display: flex; justify-content: space-between; align-items: center;}
+        input[type="text"], select { width: 100%; box-sizing: border-box; background: rgba(0,0,0,0.2); border: 1px solid var(--border-color); color: white; border-radius: 6px; padding: 6px 10px; font-size: 13px; outline: none; }
+        input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: rgba(255, 255, 255, 0.1); border-radius: 2px; outline: none; margin: 8px 0; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: white; cursor: pointer; box-shadow: 0 0 8px 2px var(--highlight); transition: transform 0.2s; }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.4); }
+        .type-selector { display: flex; gap: 5px; margin-bottom: 10px; background: rgba(0,0,0,0.2); padding: 3px; border-radius: 6px; }
+        .type-btn { flex: 1; text-align: center; font-size: 12px; padding: 6px; cursor: pointer; border-radius: 4px; color: #a0aec0; transition: 0.2s; }
+        .type-btn.active { background: var(--highlight); color: white; }
+        .btn-add { background: linear-gradient(135deg, var(--highlight), var(--highlight-glow)); border: none; width: 100%; color: white; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer;}
+        .btn-delete { background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.3); color: #fca5a5; padding: 4px 8px; font-size: 12px; border-radius: 4px; cursor: pointer;}
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
+</head>
+<body onclick="deselectPlanet()">
+
+    <!-- 初始加载屏 -->
+    <div id="loading-screen">
+        <div class="spinner"></div>
+        <div style="font-size: 14px; color: #a0aec0; letter-spacing: 2px;">同步云端数据中...</div>
+    </div>
+
+    <!-- 极简模式指示器 -->
+    <div id="mode-indicator">访客模式</div>
+
+    <canvas id="trails-canvas"></canvas>
+
+    <!-- 宇宙中心 -->
+    <div id="center-node" class="center-node" onclick="selectCenter(event)"></div>
+    <div id="planets-container"></div>
+
+    <!-- 信息卡片 -->
+    <div id="normal-info-card" onclick="event.stopPropagation()">
+        <!-- 绝对居中容器 -->
+        <div style="display: flex; justify-content: center; width: 100%; position: relative;">
+            <div style="position: relative; display: inline-flex; align-items: center;">
+                <span id="name-text" style="font-size: 20px; font-weight: bold;">姓名</span>
+                <span id="gender-icon" style="position: absolute; left: 100%; margin-left: 6px; display: none; align-items: center;"></span>
+            </div>
+        </div>
+        <div id="info-card-tags"></div>
+        <div id="info-card-contact"></div>
+    </div>
+
+    <!-- PIN码输入弹窗 -->
+    <div id="pin-modal" class="modal-overlay" onclick="closePinModal()">
+        <div class="modal-container pin-container" onclick="event.stopPropagation()">
+            <h3 style="font-size: 18px; font-weight: normal; letter-spacing: 2px; margin-bottom: -5px;">安全验证</h3>
+            <div style="font-size: 12px; color: #a0aec0; text-align: center;">请输入验证密钥 (访客请直接返回)</div>
+            <div class="pin-inputs">
+                <input type="password" class="pin-box" maxlength="1" inputmode="numeric">
+                <input type="password" class="pin-box" maxlength="1" inputmode="numeric">
+                <input type="password" class="pin-box" maxlength="1" inputmode="numeric">
+                <input type="password" class="pin-box" maxlength="1" inputmode="numeric">
+            </div>
+            <button class="btn-text" onclick="closePinModal()">返回访客模式</button>
+        </div>
+    </div>
+
+    <!-- 紧急联系方式保护确认弹窗 -->
+    <div id="confirm-modal" class="modal-overlay" onclick="closeConfirmModal()">
+        <div class="modal-container" style="max-width: 320px; text-align: center; gap: 12px;" onclick="event.stopPropagation()">
+            <div style="font-size: 36px; margin-bottom: -10px;">🛡️</div>
+            <h3 style="color: #fca5a5; font-size: 18px;">隐私保护提示</h3>
+            <div style="font-size: 13px; color: #cbd5e1; line-height: 1.6;">
+                该联系信息仅限在<strong style="color: #fff;">紧急情况</strong>下调取使用。<br>系统将会记录此次查看行为并通知管理员。
+            </div>
+            <div style="display: flex; gap: 10px; width: 100%; margin-top: 10px;">
+                <button class="btn-neutral" onclick="closeConfirmModal()">取消</button>
+                <button id="confirm-btn-ok" class="btn-danger">确认查看</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 顶部操作区 -->
+    <div class="top-actions">
+        <button id="auth-btn" class="icon-btn" onclick="handleAuthClick(event)" title="身份验证">
+            <svg id="icon-lock" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+            </svg>
+            <svg id="icon-unlock" style="display:none;" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path>
+            </svg>
+        </button>
+        <button id="toggle-panel-btn" class="icon-btn" onclick="togglePanel(event)" style="display: none;" title="开关控制台">
+            <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="15" y1="3" x2="15" y2="21"></line>
+            </svg>
+        </button>
+    </div>
+
+    <!-- 管理控制面板 -->
+    <div id="control-panel" class="hidden" onclick="event.stopPropagation()">
+        <div class="global-tools">
+            <button onclick="exportData()">导出配置</button>
+            <label for="import-file" style="margin: 0;">导入本地配置</label>
+            <input type="file" id="import-file" style="display: none;" accept=".json" onchange="importData(event)">
+            <button onclick="clearData()" style="background: rgba(239, 68, 68, 0.2); color: #fca5a5;">清空重置</button>
+        </div>
+        
+        <hr style="border:0; border-top: 1px solid rgba(255,255,255,0.1); margin: 10px 0;">
+        
+        <div class="two-cols">
+            <div class="input-group">
+                <label>我的称呼</label>
+                <input type="text" id="center-name-input" oninput="updateCenterInfo('name', this.value)">
+            </div>
+            <div class="input-group">
+                <label>我的头像</label>
+                <input type="text" id="center-avatar-input" placeholder="Emoji或URL" oninput="updateCenterInfo('avatar', this.value)">
+            </div>
+        </div>
+
+        <input type="text" class="search-box" id="search-input" placeholder="搜索星球姓名..." oninput="renderEditor()">
+        <div id="editor-list"></div>
+        <button class="btn-add" onclick="addNewPlanet()">+ 捕获新行星</button>
+    </div>
+
+    <script>
+        // --- 全局鼠标光晕监听 ---
+        window.addEventListener('mousemove', (e) => {
+            document.body.style.setProperty('--mouse-x', `${e.clientX}px`);
+            document.body.style.setProperty('--mouse-y', `${e.clientY}px`);
+        });
+
+        // --- 初始化空状态 ---
+        let appData = { centerName: 'User', relationships: [] };
+        
+        // GitHub 云端配置文件的地址 (请确保仓库名拼写正确)
+        const GITHUB_RAW_URL = './universe.json';
+
+        const PIN_ADMIN = '3508';
+        const PIN_FRIEND = '1023';
+        
+        let currentMode = 'VISITOR'; 
+        let isPanelOpen = false;
+        let selectedPlanetId = null;
+        let hoveredPlanetId = null; 
+        let modeFadeTimeout = null;
+
+        const canvas = document.getElementById('trails-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+
+        function resizeCanvas() { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; }
+        window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+        const planetsContainer = document.getElementById('planets-container');
+        const editorList = document.getElementById('editor-list');
+        let planetsRenderData = [];
+
+        function saveToLocal() { localStorage.setItem('my_universe_cloud_data', JSON.stringify(appData)); }
+
+        // --- 核心脱敏与工具函数 ---
+        function maskName(name, isCenter = false) {
+            if (currentMode === 'ADMIN') return name; 
+            if (isCenter && currentMode === 'FRIEND') return name;
+
+            const len = name.length;
+            if (len === 0) return name;
+            if (/^[A-Za-z0-9\s]+$/.test(name)) {
+                if (len <= 2) return '*'.repeat(len);
+                return name[0] + '*'.repeat(len - 2) + name[len - 1];
+            } else {
+                if (len === 2) return '*' + name[1];
+                if (len === 3) return name[0] + '*' + name[2];
+                if (len > 3) return name[0] + '*'.repeat(len - 2) + name[len - 1];
+                return '*';
+            }
+        }
+
+        function getGenderSvg(gender) {
+            if (!gender) return '';
+            if (gender.includes('男')) return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="14" r="6"/><path d="M18 2l-4.5 4.5M18 2h-5M18 2v5"/></svg>`;
+            if (gender.includes('女')) return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="6"/><path d="M12 16v6M9 19h6"/></svg>`;
+            return ''; 
+        }
+
+        function formatTagsText(relStr) {
+            if (!relStr) return '暂无描述';
+            return relStr.split(/\s+/).filter(s=>s).join(' · ');
+        }
+
+        const emergencySvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>`;
+
+        let confirmCallback = null;
+        function showConfirmModal(callback) {
+            confirmCallback = callback;
+            document.getElementById('confirm-modal').classList.add('visible');
+        }
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.remove('visible');
+            confirmCallback = null;
+        }
+        document.getElementById('confirm-btn-ok').onclick = () => {
+            if (confirmCallback) confirmCallback();
+            closeConfirmModal();
+        };
+
+        window.revealContact = function(id) {
+            showConfirmModal(() => {
+                const rel = appData.relationships.find(r => r.id === id);
+                document.getElementById('name-text').innerText = rel.name; 
+                
+                const btnBox = document.getElementById('info-card-contact');
+                if(btnBox) {
+                    btnBox.innerHTML = `<div style="color: #e2e8f0; font-size: 15px; letter-spacing: 1px; text-align: center; padding: 5px; width: 100%; font-weight: bold; margin-top: 5px;">${rel.contact || '未填写联系方式'}</div>`;
+                }
+            });
+        }
+
+        // --- 权限与 UI 管理逻辑 ---
+        function updateModeUI() {
+            const indicator = document.getElementById('mode-indicator');
+            const iconLock = document.getElementById('icon-lock');
+            const iconUnlock = document.getElementById('icon-unlock');
+            const panelBtn = document.getElementById('toggle-panel-btn');
+            const panel = document.getElementById('control-panel');
+
+            if (currentMode === 'VISITOR') {
+                indicator.innerText = '访客模式';
+                iconLock.style.display = 'block'; iconUnlock.style.display = 'none';
+                panelBtn.style.display = 'none'; panel.classList.add('hidden'); isPanelOpen = false;
+            } else if (currentMode === 'FRIEND') {
+                indicator.innerText = '好友模式';
+                iconLock.style.display = 'none'; iconUnlock.style.display = 'block';
+                panelBtn.style.display = 'none'; panel.classList.add('hidden'); isPanelOpen = false;
+            } else if (currentMode === 'ADMIN') {
+                indicator.innerText = '管理模式';
+                iconLock.style.display = 'none'; iconUnlock.style.display = 'block';
+                panelBtn.style.display = 'flex'; panel.classList.remove('hidden'); isPanelOpen = true;
+            }
+
+            indicator.style.opacity = '1';
+            clearTimeout(modeFadeTimeout);
+            modeFadeTimeout = setTimeout(() => { indicator.style.opacity = '0'; }, 3000);
+
+            deselectPlanet(); buildUniverse(); if(currentMode === 'ADMIN') renderEditor();
+        }
+
+        const pinModal = document.getElementById('pin-modal');
+        const pinContainer = document.querySelector('.pin-container');
+        const pinBoxes = document.querySelectorAll('.pin-box');
+
+        pinBoxes.forEach((box, idx) => {
+            box.addEventListener('input', (e) => {
+                box.value = box.value.replace(/[^0-9]/g, ''); 
+                if (box.value && idx < 3) pinBoxes[idx + 1].focus();
+                checkPin();
+            });
+            box.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !box.value && idx > 0) pinBoxes[idx - 1].focus();
+            });
+        });
+
+        function handleAuthClick(e) {
+            e.stopPropagation();
+            if (currentMode !== 'VISITOR') {
+                currentMode = 'VISITOR'; updateModeUI();
+            } else {
+                pinBoxes.forEach(b => b.value = '');
+                pinModal.classList.add('visible');
+                setTimeout(() => pinBoxes[0].focus(), 100);
+            }
+        }
+
+        function closePinModal() { pinModal.classList.remove('visible'); }
+
+        function checkPin() {
+            const val = Array.from(pinBoxes).map(b => b.value).join('');
+            if (val.length === 4) {
+                if (val === PIN_ADMIN) {
+                    closePinModal(); currentMode = 'ADMIN'; updateModeUI();
+                } else if (val === PIN_FRIEND) {
+                    closePinModal(); currentMode = 'FRIEND'; updateModeUI();
+                } else {
+                    pinContainer.classList.add('error-shake');
+                    setTimeout(() => {
+                        pinContainer.classList.remove('error-shake');
+                        pinBoxes.forEach(b => b.value = ''); pinBoxes[0].focus();
+                    }, 400);
+                }
+            }
+        }
+
+        function togglePanel(e) {
+            e.stopPropagation(); if(currentMode !== 'ADMIN') return;
+            isPanelOpen = !isPanelOpen;
+            document.getElementById('control-panel').classList.toggle('hidden', !isPanelOpen);
+        }
+
+        function updateCenterInfo(key, value) {
+            appData[key === 'name' ? 'centerName' : 'centerAvatar'] = value;
+            saveToLocal(); buildUniverse();
+        }
+
+        function selectCenter(e) {
+            e.stopPropagation(); deselectPlanet(); selectedPlanetId = 'center';
+            const centerNode = document.getElementById('center-node');
+            centerNode.classList.add('selected');
+
+            document.getElementById('name-text').innerText = maskName(appData.centerName, true);
+            const genderIconEl = document.getElementById('gender-icon');
+            genderIconEl.innerHTML = ''; genderIconEl.style.display = 'none';
+
+            document.getElementById('info-card-tags').innerText = formatTagsText('很酷的阿酷');
+            document.getElementById('info-card-contact').style.display = 'none';
+            document.getElementById('normal-info-card').classList.add('visible');
+        }
+
+        function selectPlanet(id, e) {
+            e.stopPropagation(); selectedPlanetId = id;
+            const rel = appData.relationships.find(r => r.id === id);
+            
+            document.getElementById('center-node').classList.remove('selected');
+
+            document.querySelectorAll('.planet').forEach(el => {
+                el.classList.toggle('selected', el.id === 'planet-' + id);
+                el.style.zIndex = (el.id === 'planet-' + id) ? '20' : '5';
+            });
+
+            if (currentMode === 'ADMIN') {
+                document.getElementById('normal-info-card').classList.remove('visible');
+                if (isPanelOpen) {
+                    const card = document.getElementById('card-' + id);
+                    if (card) {
+                        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        card.classList.add('highlight');
+                        setTimeout(() => card.classList.remove('highlight'), 1500);
+                    }
+                }
+            } else {
+                document.getElementById('name-text').innerText = maskName(rel.name);
+                document.getElementById('info-card-tags').innerText = formatTagsText(rel.relationship);
+
+                const genderIconEl = document.getElementById('gender-icon');
+
+                if (currentMode === 'FRIEND') {
+                    const svgHtml = getGenderSvg(rel.gender || '保密');
+                    if(svgHtml) {
+                        genderIconEl.innerHTML = svgHtml;
+                        genderIconEl.style.display = 'inline-flex';
+                    } else {
+                        genderIconEl.innerHTML = '';
+                        genderIconEl.style.display = 'none';
+                    }
+                    
+                    document.getElementById('info-card-contact').style.display = 'flex';
+                    document.getElementById('info-card-contact').innerHTML = `<button class="btn-emergency-icon" onclick="revealContact('${rel.id}')" title="查看紧急信息">${emergencySvg}</button>`;
+                } else {
+                    genderIconEl.innerHTML = '';
+                    genderIconEl.style.display = 'none';
+                    document.getElementById('info-card-contact').style.display = 'none';
+                }
+                document.getElementById('normal-info-card').classList.add('visible');
+            }
+        }
+
+        function deselectPlanet() {
+            selectedPlanetId = null;
+            document.querySelectorAll('.planet').forEach(el => {
+                el.classList.remove('selected');
+                el.style.zIndex = '5';
+            });
+            document.getElementById('center-node').classList.remove('selected');
+            document.getElementById('normal-info-card').classList.remove('visible');
+        }
+
+        // --- 构建宇宙 ---
+        function buildUniverse() {
+            planetsContainer.innerHTML = '';
+            
+            const centerNode = document.getElementById('center-node');
+            const cName = maskName(appData.centerName, true);
+            const cAvatar = appData.centerAvatar || '';
+            let centerHtml = cAvatar.includes('.') || cAvatar.includes('/') ? `<img src="${cAvatar}">` : cAvatar;
+            centerHtml += `<div class="center-label">${cName}</div>`;
+            centerNode.innerHTML = centerHtml;
+            document.getElementById('center-name-input').value = appData.centerName || '';
+            document.getElementById('center-avatar-input').value = appData.centerAvatar || '';
+            
+            const currentAngles = {};
+            planetsRenderData.forEach(p => { currentAngles[p.id] = p.currentAngle; });
+            planetsRenderData = [];
+
+            if (!appData.relationships) appData.relationships = [];
+
+            appData.relationships.forEach(rel => {
+                const planetEl = document.createElement('div');
+                planetEl.className = 'planet'; planetEl.id = 'planet-' + rel.id;
+                
+                if (selectedPlanetId === rel.id) {
+                    planetEl.classList.add('selected');
+                    planetEl.style.zIndex = '20';
+                }
+                
+                planetEl.addEventListener('mouseenter', () => hoveredPlanetId = rel.id);
+                planetEl.addEventListener('mouseleave', () => { if(hoveredPlanetId === rel.id) hoveredPlanetId = null; });
+                planetEl.addEventListener('click', (e) => selectPlanet(rel.id, e));
+                
+                if (rel.avatar && (rel.avatar.includes('.') || rel.avatar.includes('/'))) {
+                    planetEl.innerHTML = `<img src="${rel.avatar}">`;
+                } else { planetEl.innerText = rel.avatar || '👤'; }
+
+                const nameEl = document.createElement('div');
+                nameEl.className = 'planet-name';
+                nameEl.innerText = maskName(rel.name);
+                planetEl.appendChild(nameEl);
+                planetsContainer.appendChild(planetEl);
+
+                planetsRenderData.push({
+                    ...rel, element: planetEl,
+                    currentAngle: currentAngles[rel.id] !== undefined ? currentAngles[rel.id] : rel.startAngle,
+                    angleOffsetRad: rel.angleOffset * (Math.PI / 180),
+                    actualSpeed: rel.speed * 0.0001,
+                    currentScale: 1 
+                });
+            });
+        }
+
+        // --- 动画引擎 ---
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+
+            planetsRenderData.forEach(p => {
+                p.currentAngle += p.actualSpeed;
+                
+                const baseX = p.radiusX * Math.cos(p.currentAngle);
+                const baseY = p.radiusY * Math.sin(p.currentAngle);
+                const finalX = baseX * Math.cos(p.angleOffsetRad) - baseY * Math.sin(p.angleOffsetRad);
+                const finalY = baseX * Math.sin(p.angleOffsetRad) + baseY * Math.cos(p.angleOffsetRad);
+                
+                if (p.actualSpeed > 0) {
+                    const avgRadius = (p.radiusX + p.radiusY) / 2;
+                    const dynamicTailLength = Math.max(p.actualSpeed * (200 + avgRadius * 2.5), 0.1); 
+                    
+                    const passes = 15; 
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    
+                    for (let pass = 0; pass < passes; pass++) {
+                        const currentTailLength = dynamicTailLength * (1 - pass/passes); 
+                        const segments = 40; 
+                        
+                        ctx.beginPath();
+                        for (let i = 0; i <= segments; i++) {
+                            const angle = p.currentAngle - (i / segments) * currentTailLength;
+                            const bx = p.radiusX * Math.cos(angle);
+                            const by = p.radiusY * Math.sin(angle);
+                            const x = width / 2 + bx * Math.cos(p.angleOffsetRad) - by * Math.sin(p.angleOffsetRad);
+                            const y = height / 2 + bx * Math.sin(p.angleOffsetRad) + by * Math.cos(p.angleOffsetRad);
+                            
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.lineWidth = 1.0 + (pass / passes) * 2.0; 
+                        const opacity = 0.03 + (pass / passes) * 0.05; 
+                        ctx.strokeStyle = `rgba(225, 200, 255, ${opacity})`; 
+                        ctx.stroke();
+                    }
+                }
+
+                // 高亮核
+                const headCanvasX = width / 2 + finalX;
+                const headCanvasY = height / 2 + finalY;
+                ctx.beginPath();
+                ctx.arc(headCanvasX, headCanvasY, 2.5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowBlur = 12; 
+                ctx.shadowColor = '#a855f7'; 
+                ctx.fill();
+                ctx.shadowBlur = 0; 
+
+                // Lerp 缓动
+                let targetScale = 1;
+                if (p.id === selectedPlanetId) {
+                    targetScale = 1.3;
+                } else if (p.id === hoveredPlanetId) {
+                    targetScale = 1.15; 
+                    p.element.style.zIndex = '15'; 
+                } else {
+                    p.element.style.zIndex = '5';
+                }
+                
+                p.currentScale += (targetScale - p.currentScale) * 0.2;
+                p.element.style.transform = `translate(calc(-50% + ${finalX}px), calc(-50% + ${finalY}px)) scale(${p.currentScale})`;
+            });
+            requestAnimationFrame(animate);
+        }
+
+        // --- 管理面板渲染 ---
+        function renderEditor() {
+            if(currentMode !== 'ADMIN') return;
+            const searchTerm = document.getElementById('search-input').value.toLowerCase();
+            editorList.innerHTML = '';
+            
+            appData.relationships.forEach((rel) => {
+                if (searchTerm && !rel.name.toLowerCase().includes(searchTerm)) return;
+
+                const card = document.createElement('div');
+                card.className = 'card'; card.id = 'card-' + rel.id;
+                
+                const isCircle = rel.type === 'circle';
+                const radiusUI = isCircle ? `
+                    <div class="input-group">
+                        <label><span>半径距离</span> <span>${rel.radiusX}</span></label>
+                        <input type="range" min="50" max="800" value="${rel.radiusX}" oninput="updateData('${rel.id}', 'radiusCircle', this.value); this.previousElementSibling.children[1].innerText = this.value;">
+                    </div>
+                ` : `
+                    <div class="two-cols">
+                        <div class="input-group">
+                            <label><span>长轴</span> <span>${rel.radiusX}</span></label>
+                            <input type="range" min="50" max="800" value="${rel.radiusX}" oninput="updateData('${rel.id}', 'radiusX', this.value); this.previousElementSibling.children[1].innerText = this.value;">
+                        </div>
+                        <div class="input-group">
+                            <label><span>短轴</span> <span>${rel.radiusY}</span></label>
+                            <input type="range" min="50" max="800" value="${rel.radiusY}" oninput="updateData('${rel.id}', 'radiusY', this.value); this.previousElementSibling.children[1].innerText = this.value;">
+                        </div>
+                    </div>
+                `;
+
+                const genderVal = rel.gender || '保密';
+
+                card.innerHTML = `
+                    <div class="card-header">
+                        <span id="card-title-${rel.id}">${rel.name}</span>
+                        <button class="btn-delete" onclick="deletePlanet('${rel.id}')">删除</button>
+                    </div>
+                    
+                    <div class="two-cols">
+                        <div class="input-group">
+                            <label>姓名</label>
+                            <input type="text" value="${rel.name}" oninput="updateData('${rel.id}', 'name', this.value)">
+                        </div>
+                        <div class="input-group" style="flex: 0.6">
+                            <label>性别</label>
+                            <select onchange="updateData('${rel.id}', 'gender', this.value)">
+                                <option value="男" ${genderVal==='男'?'selected':''}>男</option>
+                                <option value="女" ${genderVal==='女'?'selected':''}>女</option>
+                                <option value="保密" ${genderVal==='保密'?'selected':''}>保密</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="two-cols">
+                        <div class="input-group">
+                            <label>关系标签 (空格分隔)</label>
+                            <input type="text" value="${rel.relationship || ''}" placeholder="家人 挚友 树洞" oninput="updateData('${rel.id}', 'relationship', this.value)">
+                        </div>
+                        <div class="input-group" style="flex: 0.6">
+                            <label>认识时间</label>
+                            <input type="text" value="${rel.timeKnown || ''}" placeholder="如: 2024" oninput="updateData('${rel.id}', 'timeKnown', this.value)">
+                        </div>
+                    </div>
+                    
+                    <div class="two-cols">
+                        <div class="input-group">
+                            <label>联系方式 (保密)</label>
+                            <input type="text" value="${rel.contact || ''}" placeholder="Phone / WeChat" oninput="updateData('${rel.id}', 'contact', this.value)">
+                        </div>
+                        <div class="input-group">
+                            <label>头像</label>
+                            <input type="text" value="${rel.avatar}" oninput="updateData('${rel.id}', 'avatar', this.value)">
+                        </div>
+                    </div>
+                    
+                    <div class="type-selector">
+                        <div class="type-btn ${isCircle ? 'active' : ''}" onclick="updateData('${rel.id}', 'type', 'circle')">正圆轨迹</div>
+                        <div class="type-btn ${!isCircle ? 'active' : ''}" onclick="updateData('${rel.id}', 'type', 'ellipse')">椭圆轨迹</div>
+                    </div>
+                    
+                    ${radiusUI}
+                    
+                    <div class="two-cols">
+                        <div class="input-group">
+                            <label><span>倾角</span> <span>${rel.angleOffset}°</span></label>
+                            <input type="range" min="0" max="360" value="${rel.angleOffset}" oninput="updateData('${rel.id}', 'angleOffset', this.value); this.previousElementSibling.children[1].innerText = this.value + '°';">
+                        </div>
+                        <div class="input-group">
+                            <label><span>速度</span> <span>${rel.speed}</span></label>
+                            <input type="range" min="0" max="40" value="${rel.speed}" oninput="updateData('${rel.id}', 'speed', this.value); this.previousElementSibling.children[1].innerText = this.value;">
+                        </div>
+                    </div>
+                `;
+                editorList.appendChild(card);
+            });
+        }
+
+        function updateData(id, key, value) {
+            const rel = appData.relationships.find(r => r.id === id);
+            if (rel) {
+                if (key === 'radiusCircle') {
+                    rel.radiusX = Number(value); rel.radiusY = Number(value);
+                } else if (['radiusX', 'radiusY', 'angleOffset', 'speed'].includes(key)) {
+                    rel[key] = Number(value);
+                } else if (key === 'type') {
+                    rel.type = value; if (value === 'circle') rel.radiusY = rel.radiusX; renderEditor(); 
+                } else {
+                    rel[key] = value;
+                    if (key === 'name') {
+                        const titleEl = document.getElementById('card-title-' + id);
+                        if (titleEl) titleEl.innerText = value || '未命名';
+                    }
+                }
+                saveToLocal(); buildUniverse(); 
+            }
+        }
+
+        function addNewPlanet() {
+            appData.relationships.push({
+                id: 'rel_' + Date.now(), name: '新行星', avatar: '👤', type: 'circle', radiusX: 200, radiusY: 200, angleOffset: Math.floor(Math.random()*180), speed: 10, startAngle: Math.random() * Math.PI * 2, gender: '保密', relationship: '新相识', timeKnown: '', contact: ''
+            }); saveToLocal(); renderEditor(); buildUniverse();
+        }
+
+        function deletePlanet(id) {
+            if(confirm('确定要移出这颗星球吗？')) {
+                appData.relationships = appData.relationships.filter(r => r.id !== id);
+                if(selectedPlanetId === id) deselectPlanet();
+                saveToLocal(); renderEditor(); buildUniverse();
+            }
+        }
+
+        // --- 全新的“导出与云端”工作流 ---
+        function exportData() { 
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appData, null, 2)); 
+            const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", "universe.json"); dl.click(); 
+        }
+
+        function importData(event) { 
+            const file = event.target.files[0]; if (!file) return; 
+            const reader = new FileReader(); 
+            reader.onload = function(e) { 
+                try { 
+                    const imported = JSON.parse(e.target.result); 
+                    if(imported.relationships) { 
+                        appData = imported; saveToLocal(); deselectPlanet(); buildUniverse(); if(currentMode==='ADMIN') renderEditor(); 
+                    } 
+                } catch(err) { alert("JSON格式错误！"); } 
+            }; 
+            reader.readAsText(file); event.target.value = ''; 
+        }
+        function clearData() { if(confirm('清空所有本地缓存数据？')) { localStorage.removeItem('my_universe_cloud_data'); location.reload(); } }
+
+        // --- 核心拉取逻辑：从 GitHub 拉取数据 ---
+        async function loadCloudData() {
+            try {
+                // 加上时间戳，防止浏览器或CDN缓存老数据
+                const response = await fetch(GITHUB_RAW_URL + '?t=' + new Date().getTime());
+                if (response.ok) {
+                    appData = await response.json();
+                    saveToLocal(); // 将拉取到的最新云端数据覆盖到本地
+                } else {
+                    console.log('GitHub 请求失败，尝试使用本地缓存');
+                    fallbackToLocal();
+                }
+            } catch (error) {
+                console.log('网络错误，尝试使用本地缓存');
+                fallbackToLocal();
+            }
+
+            // 数据加载完毕后隐藏加载屏并渲染
+            document.getElementById('loading-screen').style.opacity = '0';
+            setTimeout(() => document.getElementById('loading-screen').style.display = 'none', 500);
+            updateModeUI(); 
+            animate();
+        }
+
+        function fallbackToLocal() {
+            const savedData = localStorage.getItem('my_universe_cloud_data');
+            if (savedData) { try { appData = JSON.parse(savedData); } catch(e) {} }
+        }
+
+        // 启动宇宙！
+        loadCloudData();
+
+    </script>
+</body>
+</html>
