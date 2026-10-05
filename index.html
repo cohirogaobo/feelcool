@@ -1,54 +1,509 @@
-<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" href="favicon.ico" />
-    <title>feelcool</title>
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>feelcool - Feeling Kind of Cool</title>
     <meta name="description" content="feelcool official" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="feelcool" />
     <meta property="og:description" content="feelcool official" />
-    <meta property="og:image" content="https://cdn-design-e.dora.run/QA/7W/zL/QA7WzLIUGM8M5zyC9NCEYU.png" />
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="feelcool" />
-    <meta name="twitter:description" content="feelcool official" />
-    <meta name="twitter:image" content="https://cdn-design-e.dora.run/QA/7W/zL/QA7WzLIUGM8M5zyC9NCEYU.png" />
-    
+    <meta property="og:image" content="https://cdn.jsdelivr.net/gh/cohirogaobo/feelcool@main/assets/QA7WzLIUGM8M5zyC9NCEYU.png" />
+    <link rel="icon" href="/favicon.ico" />
+
+    <!-- 核心运行库 (配合 _redirects 走 jsDelivr 加速)[span_0](start_span)[span_0](end_span) -->
+    <script src="/env.js"></script>
+    <script src="/runtime/kiwi.min.js"></script>
+    <script src="/runtime/signals.min.js"></script>
+    <script src="/runtime/threed_renderer/build/runner.js"></script>
+    <script defer src="/runtime/main.dart.js"></script>
+
     <style>
-      html, body {
-        width: 100%;
-        height: 100%;
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        -webkit-font-smoothing: antialiased;
-      }
-      dora-viewer, #dora-root {
-        display: block;
-        position: absolute;
-        left: 0;
-        top: 0;
-        right: 0;
-        bottom: 0;
-      }
+        /* ================= 字体引入 ================= */
+        @font-face {
+            font-family: 'Montserrat Alternates';
+            src: url('/fonts/MontserratAlternates-SemiBold.ttf') format('truetype');
+            font-weight: 600;
+            font-style: normal;
+        }
+
+        /* ================= 基础变量与重置 ================= */
+        :root {
+            --bg-color: #07070a;
+            --text-primary: #f5f5f7;
+            --text-secondary: #86868b;
+            --glass-bg: rgba(20, 20, 28, 0.5);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --accent-glow: #6366f1;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle 900px at 50% -10%, rgba(99, 102, 241, 0.12) 0%, transparent 100%);
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ================= 顶部导航栏 ================= */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            height: 56px;
+            background: rgba(7, 7, 10, 0.75);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-bottom: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+        }
+
+        /* Logo 区域 */
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+
+        /* 针对 PNG 的样式与破图（未加载）时的降级美化 */
+        .nav-logo img {
+            height: 22px;
+            width: auto;
+            display: block;
+            border: none;
+            outline: none;
+            background: transparent;
+            /* 以下是图片加载失败时，替代文本 (alt) 的兜底样式 */
+            color: var(--text-primary);
+            font-family: 'Montserrat Alternates', sans-serif;
+            font-weight: 600;
+            font-size: 20px;
+            line-height: 22px;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 32px;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: #d2d2d7;
+            text-decoration: none;
+            font-size: 13px;
+            letter-spacing: 0.8px;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: #ffffff;
+        }
+
+        .nav-actions .btn-small {
+            background: #ffffff;
+            color: #000000;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+        .nav-actions .btn-small:hover { opacity: 0.8; }
+
+        /* ================= 巨幕 Hero 区域 ================= */
+        .hero {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 120px 20px 60px 20px;
+            margin-top: 56px;
+        }
+
+        .hero h1 {
+            font-size: 88px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            line-height: 1.05;
+            margin-bottom: 24px;
+            background: linear-gradient(180deg, #ffffff 0%, #a1a1a6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .hero p {
+            font-size: 22px;
+            color: var(--text-secondary);
+            max-width: 650px;
+            margin-bottom: 40px;
+            font-weight: 400;
+            line-height: 1.5;
+            animation: fadeInUp 1s ease-out 0.2s both;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 16px;
+            animation: fadeInUp 1s ease-out 0.4s both;
+        }
+
+        .btn-primary {
+            background: var(--text-primary);
+            color: var(--bg-color);
+            padding: 16px 32px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: transform 0.3s ease;
+        }
+        .btn-primary:hover { transform: scale(1.05); }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-primary);
+            padding: 16px 32px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 1px solid var(--glass-border);
+            transition: background 0.3s ease;
+        }
+        .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
+
+        /* ================= 交互渲染区 (类 macOS 窗口) ================= */
+        .dora-window-section {
+            width: 100%;
+            max-width: 1200px;
+            margin: 40px auto 100px auto;
+            padding: 0 24px;
+            animation: fadeInUp 1s ease-out 0.6s both;
+        }
+
+        .window-frame {
+            width: 100%;
+            background: #000;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 80px rgba(99, 102, 241, 0.15);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .window-header {
+            height: 38px;
+            background: rgba(255, 255, 255, 0.05);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 8px;
+        }
+
+        .window-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .dot-close { background: #ff5f56; }
+        .dot-min { background: #ffbd2e; }
+        .dot-exp { background: #27c93f; }
+
+        .window-title {
+            margin-left: 12px;
+            font-size: 12px;
+            color: #86868b;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .window-content {
+            position: relative;
+            width: 100%;
+            height: 70vh;
+            min-height: 500px;
+            max-height: 800px;
+        }
+
+        dora-viewer, #dora-root {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* ================= Bento Box 便当盒网格 ================= */
+        .bento-section {
+            max-width: 1200px;
+            margin: 0 auto 100px auto;
+            padding: 0 24px;
+        }
+
+        .section-title {
+            font-size: 42px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 60px;
+            letter-spacing: -0.01em;
+        }
+
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+        }
+
+        .bento-item {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 28px;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            transition: transform 0.4s ease, border-color 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bento-item:hover {
+            transform: translateY(-4px);
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+
+        .item-wide { 
+            grid-column: span 2; 
+        }
+
+        .bento-icon {
+            color: var(--text-primary);
+            margin-bottom: 24px;
+        }
+
+        .bento-item h3 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            letter-spacing: -0.01em;
+        }
+
+        .bento-item p {
+            color: var(--text-secondary);
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        /* ================= CTA 底部行动号召 ================= */
+        .cta-section {
+            max-width: 1000px;
+            margin: 0 auto 100px auto;
+            padding: 80px 40px;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%);
+            border: 1px solid var(--glass-border);
+            border-radius: 32px;
+            text-align: center;
+        }
+
+        .cta-section h2 {
+            font-size: 44px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            letter-spacing: -0.01em;
+        }
+
+        /* ================= 页脚 ================= */
+        footer {
+            border-top: 1px solid var(--glass-border);
+            padding: 40px 24px;
+            text-align: center;
+            color: #6e6e73;
+            font-size: 12px;
+        }
+
+        .footer-links {
+            margin-top: 16px;
+            display: flex;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .footer-links a {
+            color: #6e6e73;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+
+        .footer-links a:hover { color: #ffffff; }
+
+        /* ================= 动画与响应式 ================= */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 900px) {
+            .bento-grid { grid-template-columns: 1fr; }
+            .item-wide { grid-column: span 1; }
+            .hero h1 { font-size: 64px; }
+            .hero p { font-size: 18px; }
+            .nav-links { display: none; }
+        }
     </style>
-    <script src="env.js"></script>
-    <script src="runtime/kiwi.min.js"></script>
-    <script src="runtime/signals.min.js"></script>
-    <script src="runtime/threed_renderer/build/runner.js"></script>
-    <script defer src="runtime/main.dart.js"></script>
-    
-  </head>
-  <body>
-    
-    <dora-viewer
-      id="dora-root"
-      project="0"
-      project-loader="self-hosted"
-      style="width: 100%; height: 100%"
-    ></dora-viewer>
-    
-  </body>
+</head>
+<body>
+
+    <!-- 导航栏 -->
+    <nav>
+        <div class="nav-container">
+            <!-- 已替换为 PNG。即便网络卡顿导致图片未加载，也会优雅地显示由 CSS 美化过的 "feelcool" 文本 -->
+            <a href="/" class="nav-logo">
+                <img src="/assets/feelcool.png" alt="feelcool">
+            </a>
+            
+            <div class="nav-links">
+                <a href="#overview" class="active">Overview</a>
+                <a href="cooluniverse.html">Universe</a>
+                <a href="gallery.html">Gallery</a>
+                <a href="tech-specs.html">Tech Specs</a>
+                <a href="about.html">About Us</a>
+            </div>
+
+            <div class="nav-actions">
+                <a href="login.html" class="btn-small">Portal Access</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 巨幕区 -->
+    <header class="hero" id="overview">
+        <h1>Feeling<br>Kind of<br>Cool.</h1>
+        <p>体验极简流体设计与前沿交互的碰撞。由定制引擎驱动，带来不可思议的流畅视觉反馈与全景数字体验。</p>
+        <div class="btn-group">
+            <a href="#dora-app" class="btn-primary">探索系统</a>
+            <a href="cooluniverse.html" class="btn-secondary">查看宇宙 Beta</a>
+        </div>
+    </header>
+
+    <!-- 3D/动画引擎渲染区 (封装为类 macOS 窗口)[span_1](start_span)[span_1](end_span) -->
+    <section class="dora-window-section" id="dora-app">
+        <div class="window-frame">
+            <div class="window-header">
+                <span class="window-dot dot-close"></span>
+                <span class="window-dot dot-min"></span>
+                <span class="window-dot dot-exp"></span>
+                <span class="window-title">feelcool_engine_viewer.exe</span>
+            </div>
+            <div class="window-content">
+                <dora-viewer
+                  id="dora-root"
+                  project="0"
+                  project-loader="self-hosted">
+                </dora-viewer>
+            </div>
+        </div>
+    </section>
+
+    <!-- 便当盒网格 特性展示 -->
+    <section class="bento-section">
+        <h2 class="section-title">核心体验，处处惊艳。</h2>
+        
+        <div class="bento-grid">
+            <div class="bento-item item-wide">
+                <div class="bento-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                    </svg>
+                </div>
+                <h3>玻璃态 UI 美学</h3>
+                <p>深邃的暗色背景交织着半透明的毛玻璃材质。我们在光影与纵深感之间找到了完美的平衡，让内容呈现如艺术品般精致。</p>
+            </div>
+            
+            <div class="bento-item">
+                <div class="bento-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                </div>
+                <h3>实时原生渲染</h3>
+                <p>由底层 WebGL 驱动的高帧率表现，带来精准物理反馈。</p>
+            </div>
+
+            <div class="bento-item">
+                <div class="bento-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="4"></circle>
+                        <path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9c0-4.97 4.03-9 9-9"></path>
+                    </svg>
+                </div>
+                <h3>很酷宇宙节点</h3>
+                <p>人物、关系与数据化作轨道，提供极具空间感的信息导航架构。</p>
+            </div>
+
+            <div class="bento-item">
+                <div class="bento-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                    </svg>
+                </div>
+                <h3>沙盒防御</h3>
+                <p>底层 iframe 沙盒与网络代理中转，全面防止资源污染。</p>
+            </div>
+
+            <div class="bento-item">
+                <div class="bento-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                        <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                    </svg>
+                </div>
+                <h3>全端自适应</h3>
+                <p>流式几何网格计算。无论在桌面还是折叠屏，像素依旧锐利优雅。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 行动号召 -->
+    <section class="cta-section">
+        <h2>准备好接入了吗？</h2>
+        <p style="color: var(--text-secondary); font-size: 18px; margin-bottom: 32px;">无论是访客探索还是高级控制台，一切就绪。</p>
+        <a href="cooluniverse.html" class="btn-primary">进入很酷宇宙 Beta</a>
+    </section>
+
+    <!-- 页脚 -->
+    <footer>
+        <p>&copy; 2026 feelcool. All rights reserved. Designed in the Matrix.</p>
+        <div class="footer-links">
+            <a href="privacy.html">Privacy Policy</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="contact.html">Contact Support</a>
+        </div>
+    </footer>
+
+</body>
 </html>
